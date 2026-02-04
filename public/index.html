@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Vault - Access Required</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .access-container {
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 450px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .lock-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .key-input-group {
+            margin-bottom: 20px;
+        }
+
+        #keyInput {
+            width: 100%;
+            padding: 15px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: border-color 0.3s;
+        }
+
+        #keyInput:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        #keyInput.error {
+            border-color: #e74c3c;
+            animation: shake 0.5s;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 15px;
+            font-size: 16px;
+            font-weight: bold;
+            color: white;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+
+        .submit-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .error-message {
+            color: #e74c3c;
+            margin-top: 15px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .loading {
+            display: none;
+            margin-top: 15px;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="access-container">
+        <div class="lock-icon">🔒</div>
+        <h1>Access Required</h1>
+        <p class="subtitle">Enter your whitelist key to access the game vault</p>
+        
+        <form id="keyForm">
+            <div class="key-input-group">
+                <input 
+                    type="text" 
+                    id="keyInput" 
+                    placeholder="XXXX-XXXX-XXXX-XXXX"
+                    maxlength="19"
+                    required
+                    autocomplete="off"
+                >
+            </div>
+            
+            <button type="submit" class="submit-btn" id="submitBtn">
+                Unlock Access
+            </button>
+            
+            <div class="error-message" id="errorMessage">
+                Invalid or already used key. Please try again.
+            </div>
+            
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        const form = document.getElementById('keyForm');
+        const keyInput = document.getElementById('keyInput');
+        const submitBtn = document.getElementById('submitBtn');
+        const errorMessage = document.getElementById('errorMessage');
+        const loading = document.getElementById('loading');
+
+        // Auto-format key input with dashes
+        keyInput.addEventListener('input', (e) => {
+            let value = e.target.value.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+            let formatted = '';
+            
+            for (let i = 0; i < value.length && i < 16; i++) {
+                if (i > 0 && i % 4 === 0) {
+                    formatted += '-';
+                }
+                formatted += value[i];
+            }
+            
+            e.target.value = formatted;
+            
+            // Remove error state when typing
+            keyInput.classList.remove('error');
+            errorMessage.classList.remove('show');
+        });
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const key = keyInput.value.trim();
+            
+            if (!key) {
+                showError();
+                return;
+            }
+
+            // Disable form during validation
+            submitBtn.disabled = true;
+            loading.classList.add('show');
+            errorMessage.classList.remove('show');
+
+            try {
+                // Call your backend API to validate the key
+                const response = await fetch('/api/validate-key', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ key: key })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.valid) {
+                    // Key is valid! Store session token and redirect
+                    if (data.token) {
+                        localStorage.setItem('accessToken', data.token);
+                    }
+                    
+                    // Redirect based on key type
+                    if (data.isAdmin) {
+                        window.location.href = '/admin.html';
+                    } else {
+                        window.location.href = '/games.html';
+                    }
+                } else {
+                    // Invalid or used key
+                    showError();
+                }
+            } catch (error) {
+                console.error('Validation error:', error);
+                showError();
+            } finally {
+                submitBtn.disabled = false;
+                loading.classList.remove('show');
+            }
+        });
+
+        function showError() {
+            keyInput.classList.add('error');
+            errorMessage.classList.add('show');
+            keyInput.value = '';
+            keyInput.focus();
+        }
+
+        // Check if user already has a valid session
+        window.addEventListener('load', async () => {
+            const token = localStorage.getItem('accessToken');
+            
+            if (token) {
+                // Verify token is still valid
+                try {
+                    const response = await fetch('/api/verify-session', {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        // Already authenticated, redirect to games
+                        window.location.href = '/games.html';
+                    } else {
+                        // Token expired, clear it
+                        localStorage.removeItem('accessToken');
+                    }
+                } catch (error) {
+                    // If verification fails, just stay on login page
+                    localStorage.removeItem('accessToken');
+                }
+            }
+        });
+    </script>
+</body>
+</html>

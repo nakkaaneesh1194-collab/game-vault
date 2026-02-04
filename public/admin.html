@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Vault - Admin Panel</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        /* Login Form */
+        .login-container {
+            max-width: 400px;
+            margin: 100px auto;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        input[type="text"],
+        input[type="password"],
+        input[type="number"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-full {
+            width: 100%;
+        }
+
+        /* Admin Panel */
+        .admin-panel {
+            display: none;
+        }
+
+        .admin-panel.show {
+            display: block;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .generate-section {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            align-items: flex-end;
+        }
+
+        .generate-section .input-group {
+            flex: 1;
+            margin: 0;
+        }
+
+        .keys-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .keys-table th,
+        .keys-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        .keys-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .keys-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-unused {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-used {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .key-code {
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            color: #667eea;
+            cursor: pointer;
+        }
+
+        .key-code:hover {
+            text-decoration: underline;
+        }
+
+        .generated-keys {
+            background: #f8f9fa;
+            border: 2px dashed #667eea;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .generated-keys.show {
+            display: block;
+        }
+
+        .generated-keys h3 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .key-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+        }
+
+        .key-item {
+            background: white;
+            padding: 10px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .copy-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+
+        .copy-btn:hover {
+            background: #5568d3;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: none;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Admin Panel (shows after entering admin key) -->
+    <div class="container admin-panel" id="adminPanel">
+        <div class="card">
+            <div class="header">
+                <div>
+                    <h1>🎮 Game Vault Admin</h1>
+                    <p class="subtitle">Manage whitelist keys</p>
+                </div>
+                <button class="btn btn-secondary" onclick="logout()">Logout</button>
+            </div>
+
+            <div class="stats" id="stats">
+                <div class="stat-card">
+                    <div class="stat-number" id="totalKeys">-</div>
+                    <div class="stat-label">Total Keys</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="unusedKeys">-</div>
+                    <div class="stat-label">Unused Keys</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="usedKeys">-</div>
+                    <div class="stat-label">Used Keys</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Generate New Keys</h2>
+            
+            <div class="success-message" id="successMessage"></div>
+            
+            <div class="generate-section">
+                <div class="input-group">
+                    <label for="keyCount">Number of Keys</label>
+                    <input type="number" id="keyCount" min="1" max="100" value="5" placeholder="How many keys?">
+                </div>
+                <button class="btn btn-primary" onclick="generateKeys(false)">
+                    Generate Regular Keys
+                </button>
+                <button class="btn btn-danger" onclick="generateKeys(true)">
+                    Generate Admin Key
+                </button>
+            </div>
+
+            <div class="generated-keys" id="generatedKeys">
+                <h3>✅ Generated Keys</h3>
+                <div class="key-list" id="keyList"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>All Keys</h2>
+            
+            <div id="keysTableContainer">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Loading keys...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let adminToken = null;
+
+        // Check if already logged in with admin key
+        window.addEventListener('load', async () => {
+            const token = localStorage.getItem('accessToken');
+            
+            if (!token) {
+                // No token, redirect to main page to enter admin key
+                alert('Please enter your admin key at the main page');
+                window.location.href = '/';
+                return;
+            }
+
+            try {
+                // Verify token is valid and is admin
+                const response = await fetch('/api/verify-session', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Decode token to check if admin (simple check)
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    
+                    if (payload.isAdmin) {
+                        adminToken = token;
+                        showAdminPanel();
+                    } else {
+                        alert('You need an admin key to access this page');
+                        window.location.href = '/games.html';
+                    }
+                } else {
+                    // Token expired
+                    localStorage.removeItem('accessToken');
+                    window.location.href = '/';
+                }
+            } catch (error) {
+                console.error('Auth error:', error);
+                localStorage.removeItem('accessToken');
+                window.location.href = '/';
+            }
+        });
+
+        function showAdminPanel() {
+            document.getElementById('adminPanel').classList.add('show');
+            loadKeys();
+        }
+
+        function logout() {
+            localStorage.removeItem('accessToken');
+            adminToken = null;
+            window.location.href = '/';
+        }
+
+        async function generateKeys(isAdmin = false) {
+            const count = isAdmin ? 1 : parseInt(document.getElementById('keyCount').value);
+            
+            if (!isAdmin && (!count || count < 1 || count > 100)) {
+                alert('Please enter a number between 1 and 100');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/admin/keys/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${adminToken}`
+                    },
+                    body: JSON.stringify({ count, isAdmin })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    displayGeneratedKeys(data.keys, isAdmin);
+                    if (isAdmin) {
+                        showSuccess(`⚠️ ADMIN KEY generated! Keep it safe!`);
+                    } else {
+                        showSuccess(`Successfully generated ${data.count} keys!`);
+                    }
+                    loadKeys(); // Refresh the table
+                } else {
+                    alert('Error generating keys');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to generate keys');
+            }
+        }
+
+        function displayGeneratedKeys(keys, isAdmin) {
+            const container = document.getElementById('generatedKeys');
+            const keyList = document.getElementById('keyList');
+            
+            keyList.innerHTML = '';
+            
+            keys.forEach(key => {
+                const keyItem = document.createElement('div');
+                keyItem.className = 'key-item';
+                keyItem.style.background = isAdmin ? '#ffe6e6' : 'white';
+                keyItem.innerHTML = `
+                    <span>${isAdmin ? '🔑 ' : ''}${key}</span>
+                    <button class="copy-btn" onclick="copyKey('${key}')">Copy</button>
+                `;
+                keyList.appendChild(keyItem);
+            });
+            
+            container.classList.add('show');
+        }
+
+        function copyKey(key) {
+            navigator.clipboard.writeText(key);
+            showSuccess(`Copied: ${key}`);
+        }
+
+        function showSuccess(message) {
+            const successMsg = document.getElementById('successMessage');
+            successMsg.textContent = message;
+            successMsg.classList.add('show');
+            
+            setTimeout(() => {
+                successMsg.classList.remove('show');
+            }, 3000);
+        }
+
+        async function loadKeys() {
+            try {
+                const response = await fetch('/api/admin/keys', {
+                    headers: {
+                        'Authorization': `Bearer ${adminToken}`
+                    }
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    displayKeys(data.keys);
+                    updateStats(data.keys);
+                }
+            } catch (error) {
+                console.error('Error loading keys:', error);
+            }
+        }
+
+        function updateStats(keys) {
+            const total = keys.length;
+            const used = keys.filter(k => k.is_used).length;
+            const unused = total - used;
+
+            document.getElementById('totalKeys').textContent = total;
+            document.getElementById('usedKeys').textContent = used;
+            document.getElementById('unusedKeys').textContent = unused;
+        }
+
+        function displayKeys(keys) {
+            const container = document.getElementById('keysTableContainer');
+            
+            if (keys.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #666; padding: 40px;">No keys yet. Generate some above!</p>';
+                return;
+            }
+
+            const table = document.createElement('table');
+            table.className = 'keys-table';
+            table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th>Key Code</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Used At</th>
+                        <th>Used By IP</th>
+                    </tr>
+                </thead>
+                <tbody id="keysTableBody"></tbody>
+            `;
+
+            const tbody = table.querySelector('#keysTableBody');
+            
+            keys.forEach(key => {
+                const row = document.createElement('tr');
+                const createdDate = new Date(key.created_at).toLocaleString();
+                const usedDate = key.used_at ? new Date(key.used_at).toLocaleString() : '-';
+                
+                row.innerHTML = `
+                    <td>
+                        <span class="key-code" onclick="copyKey('${key.key_code}')" title="Click to copy">
+                            ${key.is_admin ? '🔑 ' : ''}${key.key_code}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="status-badge ${key.is_admin ? 'status-used' : 'status-unused'}">
+                            ${key.is_admin ? 'Admin' : 'Regular'}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="status-badge ${key.is_used ? 'status-used' : 'status-unused'}">
+                            ${key.is_used ? 'Used' : 'Unused'}
+                        </span>
+                    </td>
+                    <td>${createdDate}</td>
+                    <td>${usedDate}</td>
+                    <td>${key.used_by_ip || '-'}</td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+
+            container.innerHTML = '';
+            container.appendChild(table);
+        }
+    </script>
+</body>
+</html>

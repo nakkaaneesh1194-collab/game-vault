@@ -578,18 +578,18 @@
         }
 
         function updateStats(keys) {
-            const regularKeys = keys.filter(k => !k.is_admin);
+            const regularKeys = keys.filter(k => k.is_admin === 0 || k.is_admin === false);
             const total = regularKeys.length;
-            const used = regularKeys.filter(k => k.is_used && !k.is_revoked).length;
-            const revoked = regularKeys.filter(k => k.is_revoked).length;
-            const unused = regularKeys.filter(k => !k.is_used && !k.is_revoked).length;
+            const used = regularKeys.filter(k => (k.is_used === 1 || k.is_used === true) && (k.is_revoked === 0 || k.is_revoked === false)).length;
+            const revoked = regularKeys.filter(k => k.is_revoked === 1 || k.is_revoked === true).length;
+            const unused = regularKeys.filter(k => (k.is_used === 0 || k.is_used === false) && (k.is_revoked === 0 || k.is_revoked === false)).length;
 
             document.getElementById('totalKeys').textContent = total;
             document.getElementById('usedKeys').textContent = used;
             document.getElementById('unusedKeys').textContent = unused;
             
             // Update filter tab counts
-            document.getElementById('count-all').textContent = regularKeys.length;
+            document.getElementById('count-all').textContent = total;
             document.getElementById('count-unused').textContent = unused;
             document.getElementById('count-used').textContent = used;
             document.getElementById('count-revoked').textContent = revoked;
@@ -602,15 +602,21 @@
             document.querySelectorAll('.filter-tab').forEach(tab => tab.classList.remove('active'));
             document.getElementById(`tab-${filter}`).classList.add('active');
             
-            // Filter keys
-            let filteredKeys = allKeys.filter(k => !k.is_admin); // Exclude admin keys from list
+            // Filter keys - exclude admin keys
+            let filteredKeys = allKeys.filter(k => k.is_admin === 0 || k.is_admin === false);
             
             if (filter === 'unused') {
-                filteredKeys = filteredKeys.filter(k => !k.is_used && !k.is_revoked);
+                filteredKeys = filteredKeys.filter(k => 
+                    (k.is_used === 0 || k.is_used === false) && 
+                    (k.is_revoked === 0 || k.is_revoked === false)
+                );
             } else if (filter === 'used') {
-                filteredKeys = filteredKeys.filter(k => k.is_used && !k.is_revoked);
+                filteredKeys = filteredKeys.filter(k => 
+                    (k.is_used === 1 || k.is_used === true) && 
+                    (k.is_revoked === 0 || k.is_revoked === false)
+                );
             } else if (filter === 'revoked') {
-                filteredKeys = filteredKeys.filter(k => k.is_revoked);
+                filteredKeys = filteredKeys.filter(k => k.is_revoked === 1 || k.is_revoked === true);
             }
             
             displayKeys(filteredKeys);
@@ -647,24 +653,27 @@
                 const createdDate = new Date(key.created_at).toLocaleString();
                 const usedDate = key.used_at ? new Date(key.used_at).toLocaleString() : '-';
                 
+                const isRevoked = key.is_revoked === 1 || key.is_revoked === true;
+                const isUsed = key.is_used === 1 || key.is_used === true;
+                
                 let status = 'Unused';
                 let statusClass = 'status-unused';
-                if (key.is_revoked) {
+                if (isRevoked) {
                     status = 'Revoked';
                     statusClass = 'status-used';
-                } else if (key.is_used) {
+                } else if (isUsed) {
                     status = 'Used';
                     statusClass = 'status-unused';
                 }
                 
                 let actionButtons = '';
-                if (key.is_revoked) {
+                if (isRevoked) {
                     // Revoked keys: Unrevoke or Delete
                     actionButtons = `
                         <button class="btn btn-primary" style="padding: 6px 12px; font-size: 12px; margin-right: 5px;" onclick="unrevokeKey(${key.id}, '${key.key_code}')">Unrevoke</button>
                         <button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;" onclick="deleteKey(${key.id}, '${key.key_code}')">Delete</button>
                     `;
-                } else if (key.is_used) {
+                } else if (isUsed) {
                     // Used keys: Revoke
                     actionButtons = `
                         <button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;" onclick="revokeKey(${key.id}, '${key.key_code}')">Revoke</button>

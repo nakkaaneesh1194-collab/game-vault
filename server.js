@@ -1,66 +1,78 @@
-// server.js - Simple Node.js backend for key validation
+// server.js - Node.js backend with PostgreSQL for key validation
 const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
+const { Pool } = require('pg');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
 
 const app = express();
 const PORT = process.env.PORT || 3030;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this';
+const DATABASE_URL = process.env.DATABASE_URL;
 
 // Middleware
 app.use(express.json());
 app.use(cors());
 app.use(express.static('public')); // Serve static files (index.html, games.html, etc.)
 
-// Initialize SQLite database
-const db = new sqlite3.Database('./keys.db', (err) => {
+// Initialize PostgreSQL connection
+const pool = new Pool({
+    connectionString: DATABASE_URL,
+    ssl: {
+        rejectUnauthorized: false
+    }
+});
+
+// Test connection and create tables
+pool.connect((err, client, release) => {
     if (err) {
         console.error('Database connection error:', err);
     } else {
-        console.log('Connected to SQLite database');
+        console.log('Connected to PostgreSQL database');
+        release();
         initDatabase();
     }
 });
 
 // Create tables if they don't exist
-function initDatabase() {
-    db.run(`
-        CREATE TABLE IF NOT EXISTS access_keys (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            key_code TEXT UNIQUE NOT NULL,
-            is_admin INTEGER DEFAULT 0,
-            is_used INTEGER DEFAULT 0,
-            used_at DATETIME,
-            used_by_ip TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    `);
+async function initDatabase() {
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS access_keys (
+                id SERIAL PRIMARY KEY,
+                key_code VARCHAR(255) UNIQUE NOT NULL,
+                is_admin INTEGER DEFAULT 0,
+                is_used INTEGER DEFAULT 0,
+                used_at TIMESTAMP,
+                used_by_ip VARCHAR(45),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
 
-    db.run(`
-        CREATE TABLE IF NOT EXISTS admin_users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    `);
-    
-    // Create a default admin key on first run
-    db.get('SELECT * FROM access_keys WHERE is_admin = 1', (err, row) => {
-        if (!row) {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS admin_users (
+                id SERIAL PRIMARY KEY,
+                username VARCHAR(255) UNIQUE NOT NULL,
+                password_hash VARCHAR(255) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        
+        // Create a default admin key on first run
+        const result = await pool.query('SELECT * FROM access_keys WHERE is_admin = 1');
+        
+        if (result.rows.length === 0) {
             const adminKey = generateKey();
-            db.run('INSERT INTO access_keys (key_code, is_admin) VALUES (?, 1)', [adminKey], (err) => {
-                if (!err) {
-                    console.log('===========================================');
-                    console.log('🔑 ADMIN KEY CREATED:', adminKey);
-                    console.log('===========================================');
-                    console.log('Save this key! Use it to access /admin.html');
-                    console.log('===========================================');
-                }
-            });
+            await pool.query('INSERT INTO access_keys (key_code, is_admin) VALUES ($1, 1)', [adminKey]);
+            
+            console.log('===========================================');
+            console.log('🔑 ADMIN KEY CREATED:', adminKey);
+            console.log('===========================================');
+            console.log('Save this key! Use it to access /admin.html');
+            console.log('===========================================');
         }
-    });
+    } catch (err) {
+        console.error('Error initializing database:', err);
+    }
 }
 
 // Rate limiting (simple in-memory store)
@@ -83,7 +95,7 @@ function checkRateLimit(ip) {
 }
 
 // API: Validate key
-app.post('/api/validate-key', (req, res) => {
+app.post('/api/validate-key', async (req, res) => {
     const { key } = req.body;
     const clientIp = req.ip || req.connection.remoteAddress;
 
@@ -99,66 +111,61 @@ app.post('/api/validate-key', (req, res) => {
         return res.status(400).json({ valid: false, error: 'Key is required' });
     }
 
-    // Check if key exists and is not used
-    db.get(
-        'SELECT * FROM access_keys WHERE key_code = ? AND is_used = 0',
-        [key.toUpperCase()],
-        (err, row) => {
-            if (err) {
-                console.error('Database error:', err);
-                return res.status(500).json({ valid: false, error: 'Server error' });
-            }
+    try {
+        // Check if key exists and is not used
+        const result = await pool.query(
+            'SELECT * FROM access_keys WHERE key_code = $1 AND is_used = 0',
+            [key.toUpperCase()]
+        );
 
-            if (!row) {
-                return res.status(401).json({ valid: false, error: 'Invalid or already used key' });
-            }
-
-            // Check if this is an admin key
-            if (row.is_admin) {
-                // Don't mark admin keys as used - they can be reused
-                const token = jwt.sign(
-                    { keyId: row.id, keyCode: row.key_code, isAdmin: true },
-                    JWT_SECRET,
-                    { expiresIn: '7d' }
-                );
-
-                return res.json({
-                    valid: true,
-                    token: token,
-                    isAdmin: true,
-                    message: 'Admin access granted',
-                    redirectTo: '/admin.html'
-                });
-            }
-
-            // Mark regular key as used
-            db.run(
-                'UPDATE access_keys SET is_used = 1, used_at = datetime("now"), used_by_ip = ? WHERE id = ?',
-                [clientIp, row.id],
-                (err) => {
-                    if (err) {
-                        console.error('Error marking key as used:', err);
-                        return res.status(500).json({ valid: false, error: 'Server error' });
-                    }
-
-                    // Generate JWT token
-                    const token = jwt.sign(
-                        { keyId: row.id, keyCode: row.key_code, isAdmin: false },
-                        JWT_SECRET,
-                        { expiresIn: '7d' }
-                    );
-
-                    res.json({
-                        valid: true,
-                        token: token,
-                        isAdmin: false,
-                        message: 'Access granted',
-                        redirectTo: '/games.html'
-                    });
-                }
-            );
+        if (result.rows.length === 0) {
+            return res.status(401).json({ valid: false, error: 'Invalid or already used key' });
         }
-    );
+
+        const row = result.rows[0];
+
+        // Check if this is an admin key
+        if (row.is_admin) {
+            // Don't mark admin keys as used - they can be reused
+            const token = jwt.sign(
+                { keyId: row.id, keyCode: row.key_code, isAdmin: true },
+                JWT_SECRET,
+                { expiresIn: '7d' }
+            );
+
+            return res.json({
+                valid: true,
+                token: token,
+                isAdmin: true,
+                message: 'Admin access granted',
+                redirectTo: '/admin.html'
+            });
+        }
+
+        // Mark regular key as used
+        await pool.query(
+            'UPDATE access_keys SET is_used = 1, used_at = NOW(), used_by_ip = $1 WHERE id = $2',
+            [clientIp, row.id]
+        );
+
+        // Generate JWT token
+        const token = jwt.sign(
+            { keyId: row.id, keyCode: row.key_code, isAdmin: false },
+            JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+
+        res.json({
+            valid: true,
+            token: token,
+            isAdmin: false,
+            message: 'Access granted',
+            redirectTo: '/games.html'
+        });
+    } catch (err) {
+        console.error('Database error:', err);
+        res.status(500).json({ valid: false, error: 'Server error' });
+    }
 });
 
 // API: Verify session token
@@ -195,25 +202,8 @@ app.get('/api/games', (req, res) => {
         // Return list of games (replace with your actual games)
         res.json({
             games: [
-                {
-                    id: 1,
-                    title: 'A Small World Cup',
-                    url: '/games/a_small_world_cup.html',
-                    description: 'A very goofy world cup.'
-                },
-                {
-                    id: 2,
-                    title: 'PolyTrack',
-                    url: '/games/PolyTrack.html',
-                    description: 'A simple racing game.'
-                },
-                {
-                    id: 3,
-                    title: 'Ragdoll Archers',
-                    url: '/games/ragdoll_archers.html',
-                    description: 'A fun archery game.'
-                }
-              
+                { id: 1, title: 'A Small World Cup', url: '/games/a_small_world_cup.html', description: 'Fun soccer game!' },
+                { id: 2, title: 'PolyTrack', url: '/games/PolyTrack.html', description: 'Racing game' }
             ]
         });
     } catch (err) {
@@ -244,32 +234,37 @@ function requireAdmin(req, res, next) {
 }
 
 // ADMIN API: Generate new keys
-app.post('/api/admin/keys/generate', requireAdmin, (req, res) => {
+app.post('/api/admin/keys/generate', requireAdmin, async (req, res) => {
     const { count = 1, isAdmin = false } = req.body;
     const keys = [];
 
-    for (let i = 0; i < Math.min(count, 100); i++) {
-        const key = generateKey();
-        keys.push(key);
-        
-        db.run('INSERT INTO access_keys (key_code, is_admin) VALUES (?, ?)', [key, isAdmin ? 1 : 0], (err) => {
-            if (err) {
-                console.error('Error inserting key:', err);
-            }
-        });
-    }
+    try {
+        for (let i = 0; i < Math.min(count, 100); i++) {
+            const key = generateKey();
+            keys.push(key);
+            
+            await pool.query(
+                'INSERT INTO access_keys (key_code, is_admin) VALUES ($1, $2)',
+                [key, isAdmin ? 1 : 0]
+            );
+        }
 
-    res.json({ keys, count: keys.length });
+        res.json({ keys, count: keys.length });
+    } catch (err) {
+        console.error('Error generating keys:', err);
+        res.status(500).json({ error: 'Error generating keys' });
+    }
 });
 
 // ADMIN API: List all keys
-app.get('/api/admin/keys', requireAdmin, (req, res) => {
-    db.all('SELECT * FROM access_keys ORDER BY created_at DESC', (err, rows) => {
-        if (err) {
-            return res.status(500).json({ error: 'Database error' });
-        }
-        res.json({ keys: rows });
-    });
+app.get('/api/admin/keys', requireAdmin, async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM access_keys ORDER BY created_at DESC');
+        res.json({ keys: result.rows });
+    } catch (err) {
+        console.error('Database error:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
 });
 
 // Helper: Generate random key

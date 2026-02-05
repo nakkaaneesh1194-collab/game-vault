@@ -316,6 +316,27 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        .filter-tab {
+            background: transparent;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            color: #666;
+            transition: all 0.3s;
+            border-bottom: 3px solid transparent;
+        }
+
+        .filter-tab:hover {
+            color: #667eea;
+        }
+
+        .filter-tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
     </style>
 </head>
 <body>
@@ -376,6 +397,21 @@
         <div class="card">
             <h2>All Keys</h2>
             
+            <div style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px;">
+                <button class="filter-tab active" onclick="filterKeys('all')" id="tab-all">
+                    All Keys (<span id="count-all">0</span>)
+                </button>
+                <button class="filter-tab" onclick="filterKeys('unused')" id="tab-unused">
+                    Unused (<span id="count-unused">0</span>)
+                </button>
+                <button class="filter-tab" onclick="filterKeys('used')" id="tab-used">
+                    Used (<span id="count-used">0</span>)
+                </button>
+                <button class="filter-tab" onclick="filterKeys('revoked')" id="tab-revoked">
+                    Revoked (<span id="count-revoked">0</span>)
+                </button>
+            </div>
+            
             <div id="keysTableContainer">
                 <div class="loading">
                     <div class="spinner"></div>
@@ -387,6 +423,8 @@
 
     <script>
         let adminToken = null;
+        let allKeys = [];
+        let currentFilter = 'all';
 
         // Check if already logged in with admin key
         window.addEventListener('load', async () => {
@@ -530,8 +568,9 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    displayKeys(data.keys);
-                    updateStats(data.keys);
+                    allKeys = data.keys;
+                    updateStats(allKeys);
+                    displayKeys(allKeys);
                 }
             } catch (error) {
                 console.error('Error loading keys:', error);
@@ -539,20 +578,49 @@
         }
 
         function updateStats(keys) {
-            const total = keys.length;
-            const used = keys.filter(k => k.is_used).length;
-            const unused = total - used;
+            const regularKeys = keys.filter(k => !k.is_admin);
+            const total = regularKeys.length;
+            const used = regularKeys.filter(k => k.is_used && !k.is_revoked).length;
+            const revoked = regularKeys.filter(k => k.is_revoked).length;
+            const unused = regularKeys.filter(k => !k.is_used && !k.is_revoked).length;
 
             document.getElementById('totalKeys').textContent = total;
             document.getElementById('usedKeys').textContent = used;
             document.getElementById('unusedKeys').textContent = unused;
+            
+            // Update filter tab counts
+            document.getElementById('count-all').textContent = regularKeys.length;
+            document.getElementById('count-unused').textContent = unused;
+            document.getElementById('count-used').textContent = used;
+            document.getElementById('count-revoked').textContent = revoked;
+        }
+
+        function filterKeys(filter) {
+            currentFilter = filter;
+            
+            // Update active tab
+            document.querySelectorAll('.filter-tab').forEach(tab => tab.classList.remove('active'));
+            document.getElementById(`tab-${filter}`).classList.add('active');
+            
+            // Filter keys
+            let filteredKeys = allKeys.filter(k => !k.is_admin); // Exclude admin keys from list
+            
+            if (filter === 'unused') {
+                filteredKeys = filteredKeys.filter(k => !k.is_used && !k.is_revoked);
+            } else if (filter === 'used') {
+                filteredKeys = filteredKeys.filter(k => k.is_used && !k.is_revoked);
+            } else if (filter === 'revoked') {
+                filteredKeys = filteredKeys.filter(k => k.is_revoked);
+            }
+            
+            displayKeys(filteredKeys);
         }
 
         function displayKeys(keys) {
             const container = document.getElementById('keysTableContainer');
             
             if (keys.length === 0) {
-                container.innerHTML = '<p style="text-align: center; color: #666; padding: 40px;">No keys yet. Generate some above!</p>';
+                container.innerHTML = '<p style="text-align: center; color: #666; padding: 40px;">No keys in this category.</p>';
                 return;
             }
 
@@ -562,7 +630,6 @@
                 <thead>
                     <tr>
                         <th>Key Code</th>
-                        <th>Type</th>
                         <th>Status</th>
                         <th>Created</th>
                         <th>Used At</th>
@@ -580,30 +647,50 @@
                 const createdDate = new Date(key.created_at).toLocaleString();
                 const usedDate = key.used_at ? new Date(key.used_at).toLocaleString() : '-';
                 
+                let status = 'Unused';
+                let statusClass = 'status-unused';
+                if (key.is_revoked) {
+                    status = 'Revoked';
+                    statusClass = 'status-used';
+                } else if (key.is_used) {
+                    status = 'Used';
+                    statusClass = 'status-unused';
+                }
+                
+                let actionButtons = '';
+                if (key.is_revoked) {
+                    // Revoked keys: Unrevoke or Delete
+                    actionButtons = `
+                        <button class="btn btn-primary" style="padding: 6px 12px; font-size: 12px; margin-right: 5px;" onclick="unrevokeKey(${key.id}, '${key.key_code}')">Unrevoke</button>
+                        <button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;" onclick="deleteKey(${key.id}, '${key.key_code}')">Delete</button>
+                    `;
+                } else if (key.is_used) {
+                    // Used keys: Revoke
+                    actionButtons = `
+                        <button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;" onclick="revokeKey(${key.id}, '${key.key_code}')">Revoke</button>
+                    `;
+                } else {
+                    // Unused keys: Delete
+                    actionButtons = `
+                        <button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;" onclick="deleteKey(${key.id}, '${key.key_code}')">Delete</button>
+                    `;
+                }
+                
                 row.innerHTML = `
                     <td>
                         <span class="key-code" onclick="copyKey('${key.key_code}')" title="Click to copy">
-                            ${key.is_admin ? '🔑 ' : ''}${key.key_code}
+                            ${key.key_code}
                         </span>
                     </td>
                     <td>
-                        <span class="status-badge ${key.is_admin ? 'status-used' : 'status-unused'}">
-                            ${key.is_admin ? 'Admin' : 'Regular'}
-                        </span>
-                    </td>
-                    <td>
-                        <span class="status-badge ${key.is_used ? 'status-used' : 'status-unused'}">
-                            ${key.is_used ? 'Revoked' : 'Active'}
+                        <span class="status-badge ${statusClass}">
+                            ${status}
                         </span>
                     </td>
                     <td>${createdDate}</td>
                     <td>${usedDate}</td>
                     <td>${key.used_by_ip || '-'}</td>
-                    <td>
-                        ${!key.is_admin ? 
-                            `<button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;" onclick="revokeKey(${key.id}, '${key.key_code}', ${key.is_used})">${key.is_used ? 'Already Revoked' : 'Revoke Access'}</button>` 
-                            : '-'}
-                    </td>
+                    <td>${actionButtons}</td>
                 `;
                 
                 tbody.appendChild(row);
@@ -613,13 +700,8 @@
             container.appendChild(table);
         }
 
-        async function revokeKey(keyId, keyCode, isAlreadyUsed) {
-            if (isAlreadyUsed) {
-                alert('This key has already been revoked.');
-                return;
-            }
-
-            if (!confirm(`Are you sure you want to revoke key ${keyCode}? This will immediately block access for anyone using this key.`)) {
+        async function revokeKey(keyId, keyCode) {
+            if (!confirm(`Revoke key ${keyCode}? The user will lose access immediately.`)) {
                 return;
             }
 
@@ -632,14 +714,64 @@
                 });
 
                 if (response.ok) {
-                    showSuccess(`Key ${keyCode} has been revoked. User access is now blocked.`);
-                    loadKeys(); // Refresh the table
+                    showSuccess(`Key ${keyCode} has been revoked`);
+                    loadKeys();
                 } else {
                     alert('Error revoking key');
                 }
             } catch (error) {
                 console.error('Error:', error);
                 alert('Failed to revoke key');
+            }
+        }
+
+        async function unrevokeKey(keyId, keyCode) {
+            if (!confirm(`Restore access for key ${keyCode}?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/admin/keys/unrevoke/${keyId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${adminToken}`
+                    }
+                });
+
+                if (response.ok) {
+                    showSuccess(`Access restored for key ${keyCode}`);
+                    loadKeys();
+                } else {
+                    alert('Error unrevoking key');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to unrevoke key');
+            }
+        }
+
+        async function deleteKey(keyId, keyCode) {
+            if (!confirm(`Permanently delete key ${keyCode}? This cannot be undone.`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/admin/keys/${keyId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${adminToken}`
+                    }
+                });
+
+                if (response.ok) {
+                    showSuccess(`Key ${keyCode} has been deleted`);
+                    loadKeys();
+                } else {
+                    alert('Error deleting key');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to delete key');
             }
         }
     </script>

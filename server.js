@@ -42,6 +42,7 @@ async function initDatabase() {
                 key_code VARCHAR(255) UNIQUE NOT NULL,
                 is_admin INTEGER DEFAULT 0,
                 is_used INTEGER DEFAULT 0,
+                is_revoked INTEGER DEFAULT 0,
                 used_at TIMESTAMP,
                 used_by_ip VARCHAR(45),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -97,7 +98,17 @@ function checkRateLimit(ip) {
 // API: Validate key
 app.post('/api/validate-key', async (req, res) => {
     const { key } = req.body;
-    const clientIp = req.ip || req.connection.remoteAddress;
+    let clientIp = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'];
+    
+    // Clean up IPv6 localhost to IPv4
+    if (clientIp === '::1' || clientIp === '::ffff:127.0.0.1') {
+        clientIp = '127.0.0.1';
+    }
+    
+    // Extract real IP from x-forwarded-for if behind proxy
+    if (clientIp && clientIp.includes(',')) {
+        clientIp = clientIp.split(',')[0].trim();
+    }
 
     // Rate limiting
     if (!checkRateLimit(clientIp)) {
@@ -112,21 +123,26 @@ app.post('/api/validate-key', async (req, res) => {
     }
 
     try {
-        // Check if key exists and is not used
+        // Check if key exists and is not revoked
         const result = await pool.query(
-            'SELECT * FROM access_keys WHERE key_code = $1 AND is_used = 0',
+            'SELECT * FROM access_keys WHERE key_code = $1 AND is_revoked = 0',
             [key.toUpperCase()]
         );
 
         if (result.rows.length === 0) {
-            return res.status(401).json({ valid: false, error: 'Invalid or already used key' });
+            return res.status(401).json({ valid: false, error: 'Invalid or revoked key' });
         }
 
         const row = result.rows[0];
 
         // Check if this is an admin key
         if (row.is_admin) {
-            // Don't mark admin keys as used - they can be reused
+            // Track admin key usage but don't mark as used
+            await pool.query(
+                'UPDATE access_keys SET used_at = NOW(), used_by_ip = $1 WHERE id = $2',
+                [clientIp, row.id]
+            );
+            
             const token = jwt.sign(
                 { keyId: row.id, keyCode: row.key_code, isAdmin: true },
                 JWT_SECRET,
@@ -140,6 +156,11 @@ app.post('/api/validate-key', async (req, res) => {
                 message: 'Admin access granted',
                 redirectTo: '/admin.html'
             });
+        }
+
+        // For regular keys, check if already used
+        if (row.is_used) {
+            return res.status(401).json({ valid: false, error: 'Key has already been used' });
         }
 
         // Mark regular key as used
@@ -267,14 +288,14 @@ app.get('/api/admin/keys', requireAdmin, async (req, res) => {
     }
 });
 
-// ADMIN API: Revoke a key (mark as used/revoked)
+// ADMIN API: Revoke a key (mark as revoked - blocks access)
 app.post('/api/admin/keys/revoke/:id', requireAdmin, async (req, res) => {
     const keyId = req.params.id;
     
     try {
         const result = await pool.query(
-            'UPDATE access_keys SET is_used = 1, used_at = NOW(), used_by_ip = $1 WHERE id = $2 AND is_admin = 0 RETURNING *',
-            ['Admin Revoked', keyId]
+            'UPDATE access_keys SET is_revoked = 1 WHERE id = $1 AND is_admin = 0 RETURNING *',
+            [keyId]
         );
         
         if (result.rows.length === 0) {
@@ -285,6 +306,48 @@ app.post('/api/admin/keys/revoke/:id', requireAdmin, async (req, res) => {
     } catch (err) {
         console.error('Error revoking key:', err);
         res.status(500).json({ error: 'Error revoking key' });
+    }
+});
+
+// ADMIN API: Unrevoke a key (restore access)
+app.post('/api/admin/keys/unrevoke/:id', requireAdmin, async (req, res) => {
+    const keyId = req.params.id;
+    
+    try {
+        const result = await pool.query(
+            'UPDATE access_keys SET is_revoked = 0 WHERE id = $1 AND is_admin = 0 RETURNING *',
+            [keyId]
+        );
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Key not found or is an admin key' });
+        }
+        
+        res.json({ success: true, message: 'Key access restored' });
+    } catch (err) {
+        console.error('Error unrevoking key:', err);
+        res.status(500).json({ error: 'Error unrevoking key' });
+    }
+});
+
+// ADMIN API: Delete a key permanently
+app.delete('/api/admin/keys/:id', requireAdmin, async (req, res) => {
+    const keyId = req.params.id;
+    
+    try {
+        const result = await pool.query(
+            'DELETE FROM access_keys WHERE id = $1 AND is_admin = 0 RETURNING *',
+            [keyId]
+        );
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Key not found or is an admin key' });
+        }
+        
+        res.json({ success: true, message: 'Key deleted successfully' });
+    } catch (err) {
+        console.error('Error deleting key:', err);
+        res.status(500).json({ error: 'Error deleting key' });
     }
 });
 

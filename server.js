@@ -267,6 +267,27 @@ app.get('/api/admin/keys', requireAdmin, async (req, res) => {
     }
 });
 
+// ADMIN API: Revoke a key (mark as used/revoked)
+app.post('/api/admin/keys/revoke/:id', requireAdmin, async (req, res) => {
+    const keyId = req.params.id;
+    
+    try {
+        const result = await pool.query(
+            'UPDATE access_keys SET is_used = 1, used_at = NOW(), used_by_ip = $1 WHERE id = $2 AND is_admin = 0 RETURNING *',
+            ['Admin Revoked', keyId]
+        );
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Key not found or is an admin key' });
+        }
+        
+        res.json({ success: true, message: 'Key revoked successfully' });
+    } catch (err) {
+        console.error('Error revoking key:', err);
+        res.status(500).json({ error: 'Error revoking key' });
+    }
+});
+
 // Helper: Generate random key
 function generateKey() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';

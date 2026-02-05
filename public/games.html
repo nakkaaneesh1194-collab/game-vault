@@ -36,7 +36,12 @@
             font-size: 24px;
         }
 
-        .logout-btn {
+        .header-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .logout-btn, .admin-btn {
             padding: 10px 20px;
             background: rgba(255, 255, 255, 0.2);
             border: 2px solid white;
@@ -47,7 +52,7 @@
             transition: background 0.3s;
         }
 
-        .logout-btn:hover {
+        .logout-btn:hover, .admin-btn:hover {
             background: rgba(255, 255, 255, 0.3);
         }
 
@@ -147,7 +152,10 @@
     <div class="header">
         <div class="header-content">
             <h1>🎮 Game Vault</h1>
-            <button class="logout-btn" onclick="logout()">Logout</button>
+            <div class="header-buttons">
+                <button class="admin-btn" id="adminBtn" style="display: none;" onclick="goToAdmin()">Admin Panel</button>
+                <button class="logout-btn" onclick="logout()">Logout</button>
+            </div>
         </div>
     </div>
 
@@ -190,12 +198,22 @@
 
                 const data = await response.json();
                 displayGames(data.games);
+
+                // Check if user is admin
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                if (payload.isAdmin) {
+                    document.getElementById('adminBtn').style.display = 'block';
+                }
             } catch (error) {
                 console.error('Authentication error:', error);
                 localStorage.removeItem('accessToken');
                 window.location.href = '/';
             }
         });
+
+        function goToAdmin() {
+            window.location.href = '/admin.html';
+        }
 
         function displayGames(games) {
             const container = document.getElementById('gamesContainer');

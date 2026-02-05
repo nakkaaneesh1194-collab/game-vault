@@ -327,7 +327,10 @@
                     <h1>🎮 Game Vault Admin</h1>
                     <p class="subtitle">Manage whitelist keys</p>
                 </div>
-                <button class="btn btn-secondary" onclick="logout()">Logout</button>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-primary" onclick="goToGames()">View Games</button>
+                    <button class="btn btn-secondary" onclick="logout()">Logout</button>
+                </div>
             </div>
 
             <div class="stats" id="stats">
@@ -438,6 +441,11 @@
             localStorage.removeItem('accessToken');
             adminToken = null;
             window.location.href = '/';
+        }
+
+        function goToGames() {
+            // Admins can access the games page while staying logged in
+            window.location.href = '/games.html';
         }
 
         async function generateKeys(isAdmin = false) {
@@ -559,6 +567,7 @@
                         <th>Created</th>
                         <th>Used At</th>
                         <th>Used By IP</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody id="keysTableBody"></tbody>
@@ -584,12 +593,17 @@
                     </td>
                     <td>
                         <span class="status-badge ${key.is_used ? 'status-used' : 'status-unused'}">
-                            ${key.is_used ? 'Used' : 'Unused'}
+                            ${key.is_used ? 'Revoked' : 'Active'}
                         </span>
                     </td>
                     <td>${createdDate}</td>
                     <td>${usedDate}</td>
                     <td>${key.used_by_ip || '-'}</td>
+                    <td>
+                        ${!key.is_admin ? 
+                            `<button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;" onclick="revokeKey(${key.id}, '${key.key_code}', ${key.is_used})">${key.is_used ? 'Already Revoked' : 'Revoke Access'}</button>` 
+                            : '-'}
+                    </td>
                 `;
                 
                 tbody.appendChild(row);
@@ -597,6 +611,36 @@
 
             container.innerHTML = '';
             container.appendChild(table);
+        }
+
+        async function revokeKey(keyId, keyCode, isAlreadyUsed) {
+            if (isAlreadyUsed) {
+                alert('This key has already been revoked.');
+                return;
+            }
+
+            if (!confirm(`Are you sure you want to revoke key ${keyCode}? This will immediately block access for anyone using this key.`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/admin/keys/revoke/${keyId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${adminToken}`
+                    }
+                });
+
+                if (response.ok) {
+                    showSuccess(`Key ${keyCode} has been revoked. User access is now blocked.`);
+                    loadKeys(); // Refresh the table
+                } else {
+                    alert('Error revoking key');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to revoke key');
+            }
         }
     </script>
 </body>

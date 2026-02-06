@@ -190,7 +190,7 @@ app.post('/api/validate-key', async (req, res) => {
 });
 
 // API: Verify session token
-app.get('/api/verify-session', (req, res) => {
+app.get('/api/verify-session', async (req, res) => {
     const authHeader = req.headers.authorization;
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -201,6 +201,24 @@ app.get('/api/verify-session', (req, res) => {
 
     try {
         const decoded = jwt.verify(token, JWT_SECRET);
+        
+        // Check if the key has been revoked
+        const result = await pool.query(
+            'SELECT is_revoked, is_admin FROM access_keys WHERE id = $1',
+            [decoded.keyId]
+        );
+        
+        if (result.rows.length === 0) {
+            return res.status(401).json({ valid: false, error: 'Key not found' });
+        }
+        
+        const key = result.rows[0];
+        
+        // If key is revoked and not an admin key, deny access
+        if (key.is_revoked && !key.is_admin) {
+            return res.status(401).json({ valid: false, error: 'Access revoked' });
+        }
+        
         res.json({ valid: true, keyId: decoded.keyId });
     } catch (err) {
         res.status(401).json({ valid: false, error: 'Invalid or expired token' });
@@ -208,7 +226,7 @@ app.get('/api/verify-session', (req, res) => {
 });
 
 // API: Get games list (protected)
-app.get('/api/games', (req, res) => {
+app.get('/api/games', async (req, res) => {
     const authHeader = req.headers.authorization;
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -218,7 +236,24 @@ app.get('/api/games', (req, res) => {
     const token = authHeader.substring(7);
 
     try {
-        jwt.verify(token, JWT_SECRET);
+        const decoded = jwt.verify(token, JWT_SECRET);
+        
+        // Check if the key has been revoked
+        const result = await pool.query(
+            'SELECT is_revoked, is_admin FROM access_keys WHERE id = $1',
+            [decoded.keyId]
+        );
+        
+        if (result.rows.length === 0) {
+            return res.status(401).json({ error: 'Key not found' });
+        }
+        
+        const key = result.rows[0];
+        
+        // If key is revoked and not an admin key, deny access
+        if (key.is_revoked && !key.is_admin) {
+            return res.status(401).json({ error: 'Access has been revoked' });
+        }
         
         // Return list of games (replace with your actual games)
         res.json({

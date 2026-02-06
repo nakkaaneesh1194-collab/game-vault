@@ -570,7 +570,9 @@
                 if (response.ok) {
                     allKeys = data.keys;
                     updateStats(allKeys);
-                    displayKeys(allKeys);
+                    // Show all regular keys by default
+                    const regularKeys = allKeys.filter(k => k.is_admin === 0 || k.is_admin === false);
+                    displayKeys(regularKeys);
                 }
             } catch (error) {
                 console.error('Error loading keys:', error);

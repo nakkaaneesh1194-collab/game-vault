@@ -570,9 +570,8 @@
                 if (response.ok) {
                     allKeys = data.keys;
                     updateStats(allKeys);
-                    // Show all regular keys by default
-                    const regularKeys = allKeys.filter(k => k.is_admin === 0 || k.is_admin === false);
-                    displayKeys(regularKeys);
+                    // Show ALL keys including admin keys
+                    displayKeys(allKeys);
                 }
             } catch (error) {
                 console.error('Error loading keys:', error);
@@ -581,7 +580,7 @@
 
         function updateStats(keys) {
             const regularKeys = keys.filter(k => k.is_admin === 0 || k.is_admin === false);
-            const total = regularKeys.length;
+            const total = keys.length; // Include admin keys in total
             const used = regularKeys.filter(k => (k.is_used === 1 || k.is_used === true) && (k.is_revoked === 0 || k.is_revoked === false)).length;
             const revoked = regularKeys.filter(k => k.is_revoked === 1 || k.is_revoked === true).length;
             const unused = regularKeys.filter(k => (k.is_used === 0 || k.is_used === false) && (k.is_revoked === 0 || k.is_revoked === false)).length;
@@ -604,22 +603,27 @@
             document.querySelectorAll('.filter-tab').forEach(tab => tab.classList.remove('active'));
             document.getElementById(`tab-${filter}`).classList.add('active');
             
-            // Filter keys - exclude admin keys
-            let filteredKeys = allKeys.filter(k => k.is_admin === 0 || k.is_admin === false);
+            let filteredKeys = allKeys;
             
             if (filter === 'unused') {
-                filteredKeys = filteredKeys.filter(k => 
+                filteredKeys = allKeys.filter(k => 
+                    (k.is_admin === 0 || k.is_admin === false) &&
                     (k.is_used === 0 || k.is_used === false) && 
                     (k.is_revoked === 0 || k.is_revoked === false)
                 );
             } else if (filter === 'used') {
-                filteredKeys = filteredKeys.filter(k => 
+                filteredKeys = allKeys.filter(k => 
+                    (k.is_admin === 0 || k.is_admin === false) &&
                     (k.is_used === 1 || k.is_used === true) && 
                     (k.is_revoked === 0 || k.is_revoked === false)
                 );
             } else if (filter === 'revoked') {
-                filteredKeys = filteredKeys.filter(k => k.is_revoked === 1 || k.is_revoked === true);
+                filteredKeys = allKeys.filter(k => 
+                    (k.is_admin === 0 || k.is_admin === false) &&
+                    (k.is_revoked === 1 || k.is_revoked === true)
+                );
             }
+            // 'all' filter shows everything including admin keys
             
             displayKeys(filteredKeys);
         }
@@ -638,9 +642,10 @@
                 <thead>
                     <tr>
                         <th>Key Code</th>
+                        <th>Type</th>
                         <th>Status</th>
                         <th>Created</th>
-                        <th>Used At</th>
+                        <th>Last Used</th>
                         <th>Used By IP</th>
                         <th>Actions</th>
                     </tr>
@@ -655,12 +660,21 @@
                 const createdDate = new Date(key.created_at).toLocaleString();
                 const usedDate = key.used_at ? new Date(key.used_at).toLocaleString() : '-';
                 
+                const isAdmin = key.is_admin === 1 || key.is_admin === true;
                 const isRevoked = key.is_revoked === 1 || key.is_revoked === true;
                 const isUsed = key.is_used === 1 || key.is_used === true;
                 
                 let status = 'Unused';
                 let statusClass = 'status-unused';
-                if (isRevoked) {
+                let keyType = 'Regular';
+                let keyTypeClass = 'status-unused';
+                
+                if (isAdmin) {
+                    keyType = 'Admin';
+                    keyTypeClass = 'status-used';
+                    status = 'Active';
+                    statusClass = 'status-unused';
+                } else if (isRevoked) {
                     status = 'Revoked';
                     statusClass = 'status-used';
                 } else if (isUsed) {
@@ -668,29 +682,35 @@
                     statusClass = 'status-unused';
                 }
                 
-                let actionButtons = '';
-                if (isRevoked) {
-                    // Revoked keys: Unrevoke or Delete
-                    actionButtons = `
-                        <button class="btn btn-primary" style="padding: 6px 12px; font-size: 12px; margin-right: 5px;" onclick="unrevokeKey(${key.id}, '${key.key_code}')">Unrevoke</button>
-                        <button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;" onclick="deleteKey(${key.id}, '${key.key_code}')">Delete</button>
-                    `;
-                } else if (isUsed) {
-                    // Used keys: Revoke
-                    actionButtons = `
-                        <button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;" onclick="revokeKey(${key.id}, '${key.key_code}')">Revoke</button>
-                    `;
-                } else {
-                    // Unused keys: Delete
-                    actionButtons = `
-                        <button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;" onclick="deleteKey(${key.id}, '${key.key_code}')">Delete</button>
-                    `;
+                let actionButtons = '-';
+                
+                if (!isAdmin) {
+                    // Regular keys get action buttons
+                    if (isRevoked) {
+                        actionButtons = `
+                            <button class="btn btn-primary" style="padding: 6px 12px; font-size: 12px; margin-right: 5px;" onclick="unrevokeKey(${key.id}, '${key.key_code}')">Unrevoke</button>
+                            <button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;" onclick="deleteKey(${key.id}, '${key.key_code}')">Delete</button>
+                        `;
+                    } else if (isUsed) {
+                        actionButtons = `
+                            <button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;" onclick="revokeKey(${key.id}, '${key.key_code}')">Revoke</button>
+                        `;
+                    } else {
+                        actionButtons = `
+                            <button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;" onclick="deleteKey(${key.id}, '${key.key_code}')">Delete</button>
+                        `;
+                    }
                 }
                 
                 row.innerHTML = `
                     <td>
                         <span class="key-code" onclick="copyKey('${key.key_code}')" title="Click to copy">
-                            ${key.key_code}
+                            ${isAdmin ? '🔑 ' : ''}${key.key_code}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="status-badge ${keyTypeClass}">
+                            ${keyType}
                         </span>
                     </td>
                     <td>

@@ -350,7 +350,7 @@ app.post('/api/admin/keys/unrevoke/:id', requireAdmin, async (req, res) => {
     
     try {
         const result = await pool.query(
-            'UPDATE access_keys SET is_revoked = 0 WHERE id = $1 AND is_admin = 0 RETURNING *',
+            'UPDATE access_keys SET is_revoked = 0, is_used = 0, used_at = NULL, used_by_ip = NULL WHERE id = $1 AND is_admin = 0 RETURNING *',
             [keyId]
         );
         
@@ -358,7 +358,7 @@ app.post('/api/admin/keys/unrevoke/:id', requireAdmin, async (req, res) => {
             return res.status(404).json({ error: 'Key not found or is an admin key' });
         }
         
-        res.json({ success: true, message: 'Key access restored' });
+        res.json({ success: true, message: 'Key access restored and reset to unused' });
     } catch (err) {
         console.error('Error unrevoking key:', err);
         res.status(500).json({ error: 'Error unrevoking key' });

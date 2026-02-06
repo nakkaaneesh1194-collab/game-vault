@@ -41,6 +41,7 @@ async function initDatabase() {
                 id SERIAL PRIMARY KEY,
                 key_code VARCHAR(255) UNIQUE NOT NULL,
                 is_admin INTEGER DEFAULT 0,
+                is_owner INTEGER DEFAULT 0,
                 is_used INTEGER DEFAULT 0,
                 is_revoked INTEGER DEFAULT 0,
                 used_at TIMESTAMP,
@@ -58,17 +59,18 @@ async function initDatabase() {
             )
         `);
         
-        // Create a default admin key on first run
-        const result = await pool.query('SELECT * FROM access_keys WHERE is_admin = 1');
+        // Create a default owner key on first run
+        const result = await pool.query('SELECT * FROM access_keys WHERE is_owner = 1');
         
         if (result.rows.length === 0) {
-            const adminKey = generateKey();
-            await pool.query('INSERT INTO access_keys (key_code, is_admin) VALUES ($1, 1)', [adminKey]);
+            const ownerKey = generateKey();
+            await pool.query('INSERT INTO access_keys (key_code, is_admin, is_owner) VALUES ($1, 1, 1)', [ownerKey]);
             
             console.log('===========================================');
-            console.log('🔑 ADMIN KEY CREATED:', adminKey);
+            console.log('👑 OWNER KEY CREATED:', ownerKey);
             console.log('===========================================');
-            console.log('Save this key! Use it to access /admin.html');
+            console.log('This is your master key! Keep it VERY safe!');
+            console.log('Owner can manage admin keys. Admins can only manage regular keys.');
             console.log('===========================================');
         }
     } catch (err) {
@@ -144,7 +146,7 @@ app.post('/api/validate-key', async (req, res) => {
             );
             
             const token = jwt.sign(
-                { keyId: row.id, keyCode: row.key_code, isAdmin: true },
+                { keyId: row.id, keyCode: row.key_code, isAdmin: true, isOwner: row.is_owner ? true : false },
                 JWT_SECRET,
                 { expiresIn: '7d' }
             );
@@ -153,7 +155,7 @@ app.post('/api/validate-key', async (req, res) => {
                 valid: true,
                 token: token,
                 isAdmin: true,
-                message: 'Admin access granted',
+                message: row.is_owner ? 'Owner access granted' : 'Admin access granted',
                 redirectTo: '/admin.html'
             });
         }
@@ -289,10 +291,37 @@ function requireAdmin(req, res, next) {
     }
 }
 
+// Middleware to check owner access
+function requireOwner(req, res, next) {
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const token = authHeader.substring(7);
+
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        if (!decoded.isOwner) {
+            return res.status(403).json({ error: 'Owner access required' });
+        }
+        req.user = decoded;
+        next();
+    } catch (err) {
+        res.status(401).json({ error: 'Invalid token' });
+    }
+}
+
 // ADMIN API: Generate new keys
 app.post('/api/admin/keys/generate', requireAdmin, async (req, res) => {
     const { count = 1, isAdmin = false } = req.body;
     const keys = [];
+    
+    // Only owners can generate admin keys
+    if (isAdmin && !req.user.isOwner) {
+        return res.status(403).json({ error: 'Only owner can generate admin keys' });
+    }
 
     try {
         for (let i = 0; i < Math.min(count, 100); i++) {
@@ -328,14 +357,29 @@ app.post('/api/admin/keys/revoke/:id', requireAdmin, async (req, res) => {
     const keyId = req.params.id;
     
     try {
+        // Check what type of key we're trying to revoke
+        const keyCheck = await pool.query('SELECT is_admin, is_owner FROM access_keys WHERE id = $1', [keyId]);
+        
+        if (keyCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Key not found' });
+        }
+        
+        const targetKey = keyCheck.rows[0];
+        
+        // Can't revoke owner keys
+        if (targetKey.is_owner) {
+            return res.status(403).json({ error: 'Cannot revoke owner keys' });
+        }
+        
+        // Only owners can revoke admin keys
+        if (targetKey.is_admin && !req.user.isOwner) {
+            return res.status(403).json({ error: 'Only owner can revoke admin keys' });
+        }
+        
         const result = await pool.query(
-            'UPDATE access_keys SET is_revoked = 1 WHERE id = $1 AND is_admin = 0 RETURNING *',
+            'UPDATE access_keys SET is_revoked = 1 WHERE id = $1 RETURNING *',
             [keyId]
         );
-        
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Key not found or is an admin key' });
-        }
         
         res.json({ success: true, message: 'Key revoked successfully' });
     } catch (err) {
@@ -349,14 +393,24 @@ app.post('/api/admin/keys/unrevoke/:id', requireAdmin, async (req, res) => {
     const keyId = req.params.id;
     
     try {
+        // Check what type of key we're trying to unrevoke
+        const keyCheck = await pool.query('SELECT is_admin, is_owner FROM access_keys WHERE id = $1', [keyId]);
+        
+        if (keyCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Key not found' });
+        }
+        
+        const targetKey = keyCheck.rows[0];
+        
+        // Only owners can unrevoke admin keys
+        if (targetKey.is_admin && !req.user.isOwner) {
+            return res.status(403).json({ error: 'Only owner can unrevoke admin keys' });
+        }
+        
         const result = await pool.query(
-            'UPDATE access_keys SET is_revoked = 0, is_used = 0, used_at = NULL, used_by_ip = NULL WHERE id = $1 AND is_admin = 0 RETURNING *',
+            'UPDATE access_keys SET is_revoked = 0, is_used = 0, used_at = NULL, used_by_ip = NULL WHERE id = $1 RETURNING *',
             [keyId]
         );
-        
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Key not found or is an admin key' });
-        }
         
         res.json({ success: true, message: 'Key access restored and reset to unused' });
     } catch (err) {
@@ -370,14 +424,29 @@ app.delete('/api/admin/keys/:id', requireAdmin, async (req, res) => {
     const keyId = req.params.id;
     
     try {
+        // Check what type of key we're trying to delete
+        const keyCheck = await pool.query('SELECT is_admin, is_owner FROM access_keys WHERE id = $1', [keyId]);
+        
+        if (keyCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Key not found' });
+        }
+        
+        const targetKey = keyCheck.rows[0];
+        
+        // Can't delete owner keys
+        if (targetKey.is_owner) {
+            return res.status(403).json({ error: 'Cannot delete owner keys' });
+        }
+        
+        // Only owners can delete admin keys
+        if (targetKey.is_admin && !req.user.isOwner) {
+            return res.status(403).json({ error: 'Only owner can delete admin keys' });
+        }
+        
         const result = await pool.query(
-            'DELETE FROM access_keys WHERE id = $1 AND is_admin = 0 RETURNING *',
+            'DELETE FROM access_keys WHERE id = $1 RETURNING *',
             [keyId]
         );
-        
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Key not found or is an admin key' });
-        }
         
         res.json({ success: true, message: 'Key deleted successfully' });
     } catch (err) {

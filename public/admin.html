@@ -383,7 +383,7 @@
                 <button class="btn btn-primary" onclick="generateKeys(false)">
                     Generate Regular Keys
                 </button>
-                <button class="btn btn-danger" onclick="generateKeys(true)">
+                <button class="btn btn-danger" id="generateAdminBtn" onclick="generateKeys(true)" style="display: none;">
                     Generate Admin Key
                 </button>
             </div>
@@ -425,6 +425,7 @@
         let adminToken = null;
         let allKeys = [];
         let currentFilter = 'all';
+        let isOwner = false;
 
         // Check if already logged in with admin key
         window.addEventListener('load', async () => {
@@ -453,6 +454,7 @@
                     
                     if (payload.isAdmin) {
                         adminToken = token;
+                        isOwner = payload.isOwner || false;
                         showAdminPanel();
                     } else {
                         alert('You need an admin key to access this page');
@@ -472,6 +474,12 @@
 
         function showAdminPanel() {
             document.getElementById('adminPanel').classList.add('show');
+            
+            // Show Generate Admin Key button only for owners
+            if (isOwner) {
+                document.getElementById('generateAdminBtn').style.display = 'inline-block';
+            }
+            
             loadKeys();
         }
 
@@ -660,7 +668,8 @@
                 const createdDate = new Date(key.created_at).toLocaleString();
                 const usedDate = key.used_at ? new Date(key.used_at).toLocaleString() : '-';
                 
-                const isAdmin = key.is_admin === 1 || key.is_admin === true;
+                const isKeyOwner = key.is_owner === 1 || key.is_owner === true;
+                const isKeyAdmin = key.is_admin === 1 || key.is_admin === true;
                 const isRevoked = key.is_revoked === 1 || key.is_revoked === true;
                 const isUsed = key.is_used === 1 || key.is_used === true;
                 
@@ -669,7 +678,12 @@
                 let keyType = 'Regular';
                 let keyTypeClass = 'status-unused';
                 
-                if (isAdmin) {
+                if (isKeyOwner) {
+                    keyType = '👑 Owner';
+                    keyTypeClass = 'status-used';
+                    status = 'Active';
+                    statusClass = 'status-unused';
+                } else if (isKeyAdmin) {
                     keyType = 'Admin';
                     keyTypeClass = 'status-used';
                     status = 'Active';
@@ -684,8 +698,31 @@
                 
                 let actionButtons = '-';
                 
-                if (!isAdmin) {
-                    // Regular keys get action buttons
+                // Owner keys: can never be deleted/revoked
+                if (isKeyOwner) {
+                    actionButtons = '<span style="color: #999;">Protected</span>';
+                }
+                // Admin keys: only owner can manage them
+                else if (isKeyAdmin) {
+                    if (isOwner) {
+                        // Owner can manage admin keys
+                        if (isRevoked) {
+                            actionButtons = `
+                                <button class="btn btn-primary" style="padding: 6px 12px; font-size: 12px; margin-right: 5px;" onclick="unrevokeKey(${key.id}, '${key.key_code}')">Unrevoke</button>
+                                <button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;" onclick="deleteKey(${key.id}, '${key.key_code}')">Delete</button>
+                            `;
+                        } else {
+                            actionButtons = `
+                                <button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px; margin-right: 5px;" onclick="revokeKey(${key.id}, '${key.key_code}')">Revoke</button>
+                                <button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;" onclick="deleteKey(${key.id}, '${key.key_code}')">Delete</button>
+                            `;
+                        }
+                    } else {
+                        actionButtons = '<span style="color: #999;">Owner only</span>';
+                    }
+                }
+                // Regular keys: both owner and admin can manage them
+                else {
                     if (isRevoked) {
                         actionButtons = `
                             <button class="btn btn-primary" style="padding: 6px 12px; font-size: 12px; margin-right: 5px;" onclick="unrevokeKey(${key.id}, '${key.key_code}')">Unrevoke</button>
@@ -705,7 +742,7 @@
                 row.innerHTML = `
                     <td>
                         <span class="key-code" onclick="copyKey('${key.key_code}')" title="Click to copy">
-                            ${isAdmin ? '🔑 ' : ''}${key.key_code}
+                            ${isKeyOwner ? '👑 ' : (isKeyAdmin ? '🔑 ' : '')}${key.key_code}
                         </span>
                     </td>
                     <td>

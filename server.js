@@ -100,16 +100,21 @@ function checkRateLimit(ip) {
 // API: Validate key
 app.post('/api/validate-key', async (req, res) => {
     const { key } = req.body;
-    let clientIp = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'];
     
-    // Clean up IPv6 localhost to IPv4
-    if (clientIp === '::1' || clientIp === '::ffff:127.0.0.1') {
-        clientIp = '127.0.0.1';
-    }
+    // Get real IP from Render's proxy headers
+    let clientIp = req.headers['x-forwarded-for'] || 
+                   req.headers['x-real-ip'] || 
+                   req.connection.remoteAddress || 
+                   req.socket.remoteAddress;
     
-    // Extract real IP from x-forwarded-for if behind proxy
+    // x-forwarded-for can be a comma-separated list, take the first one (real client IP)
     if (clientIp && clientIp.includes(',')) {
         clientIp = clientIp.split(',')[0].trim();
+    }
+    
+    // Clean up IPv6 localhost to IPv4 (for local testing)
+    if (clientIp === '::1' || clientIp === '::ffff:127.0.0.1') {
+        clientIp = '127.0.0.1';
     }
 
     // Rate limiting

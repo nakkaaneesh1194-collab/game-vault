@@ -266,7 +266,14 @@ app.get('/api/games', async (req, res) => {
         res.json({
             games: [
                 { id: 1, title: 'A Small World Cup', url: '/games/a_small_world_cup.html', description: 'Fun soccer game!' },
-                { id: 2, title: 'PolyTrack', url: '/games/PolyTrack.html', description: 'Racing game' }
+                { id: 2, title: 'PolyTrack', url: '/games/PolyTrack.html', description: 'Racing game' },
+                { id: 3, title: 'Ragdoll Archers', url: '/games/ragdoll_archers.html', description: 'Archery game' },
+                { id: 4, title: 'Cookie Clicker', url: '/games/cookie-clicker.html', description: 'Click a Cookie!' },
+                { id: 5, title: 'Basket Random', url: '/games/basketrandom.html', description: 'Random, Fun, Basketball game!' },
+                { id: 6, title: 'Retro Bowl College', url: '/games/retrobowlcollege.html', description: 'College Football game!' },
+                { id: 7, title: 'Crossy Road', url: '/games/crossyroad.html', description: 'Classic Crossy Road game!' },
+                { id: 8, title: 'Slow Roads', url: '/games/slowroads.html', description: 'Zen Driving game!' },
+                { id: 9, title: 'Friday Night Funkin', url: '/games/fridaynightfunkin.html', description: 'Music Battle Game!' }
             ]
         });
     } catch (err) {

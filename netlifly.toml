@@ -1,0 +1,9 @@
+[build]
+  command = "npm install"
+  publish = "public"
+
+[build.environment]
+  GIT_LFS_ENABLED = "true"
+
+[[plugins]]
+  package = "@netlify/plugin-git-lfs"

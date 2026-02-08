@@ -440,7 +440,7 @@
 
             try {
                 // Verify token is valid and is admin
-                const response = await fetch('/api/verify-session', {
+                const response = await fetch('https://game-vault-pbhf.onrender.com/api/verify-session', {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -503,7 +503,7 @@
             }
 
             try {
-                const response = await fetch('/api/admin/keys/generate', {
+                const response = await fetch('https://game-vault-pbhf.onrender.com/api/admin/keys/generate', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -568,7 +568,7 @@
 
         async function loadKeys() {
             try {
-                const response = await fetch('/api/admin/keys', {
+                const response = await fetch('https://game-vault-pbhf.onrender.com/api/admin/keys', {
                     headers: {
                         'Authorization': `Bearer ${adminToken}`
                     }

@@ -219,7 +219,7 @@
 
             try {
                 // Call your backend API to validate the key
-                const response = await fetch('/api/validate-key', {
+                const response = await fetch('https://game-vault-pbhf.onrender.com/api/validate-key', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -268,7 +268,7 @@
             if (token) {
                 // Verify token is still valid
                 try {
-                    const response = await fetch('/api/verify-session', {
+                    const response = await fetch('https://game-vault-pbhf.onrender.com/api/verify-session', {
                         headers: {
                             'Authorization': `Bearer ${token}`
                         }

@@ -232,9 +232,9 @@ app.get('/api/games', (req, res) => {
                 { id: 7, title: 'Crossy Road', url: '/games/crossyroad.html', description: 'Classic Crossy Road game!' },
                 { id: 8, title: 'Slow Roads', url: '/games/slowroads.html', description: 'Zen Driving game!' },
                 { id: 9, title: 'Friday Night Funkin', url: '/games/fridaynightfunkin.html', description: 'Music Battle Game!' },
-                { id: 10, title: 'Buckshot Roulette (beta)', url: '/games/buckshotroulette.html', description: 'Buckshot Roulette game! (beta)' },
-                { id: 11, title: 'Asteriods', url: '/games/asteroids.html', description: 'Classic Asteroids game!' },
-                { id: 12, title: 'Space Invaders', url: '/games/spaceinvaders.html', description: 'Classic Space Invaders game!' }
+                { id: 10, title: 'Asteriods', url: '/games/asteroids.html', description: 'Classic Asteroids game!' },
+                { id: 11, title: 'Space Invaders', url: '/games/spaceinvaders.html', description: 'Classic Space Invaders game!' },
+                { id: 12, title: 'Buckshot Roulette', url: '/games/buckshotroulette/index.html', description: 'Russian Roulette game with a twist!' }
             ]
         });
     } catch (err) {

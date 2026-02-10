@@ -1,11 +1,11 @@
-// Service Worker to redirect index.pck requests to GitHub
+// Service Worker to redirect index.pck requests to Backblaze B2
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
     
-    // If requesting index.pck, redirect to GitHub
+    // If requesting index.pck, redirect to Backblaze B2
     if (url.pathname.endsWith('/index.pck')) {
         event.respondWith(
-            fetch('https://github.com/nakkaaneesh1194-collab/Buckshot-Roulette-online-game-vault/releases/download/v1.0/index.pck', {
+            fetch('https://f004.backblazeb2.com/file/game-stuff/index.pck', {
                 mode: 'cors',
                 credentials: 'omit'
             })

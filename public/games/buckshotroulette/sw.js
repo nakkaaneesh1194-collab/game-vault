@@ -1,11 +1,11 @@
-// Service Worker to redirect index.pck requests to Backblaze B2
+// Service Worker to redirect index.pck requests to Render B2 proxy
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
     
-    // If requesting index.pck, redirect to Backblaze B2
+    // If requesting index.pck, redirect to Render proxy
     if (url.pathname.endsWith('/index.pck')) {
         event.respondWith(
-            fetch('https://f004.backblazeb2.com/file/game-stuff/index.pck', {
+            fetch('https://game-vault-pbhf.onrender.com/api/b2-proxy/index.pck', {
                 mode: 'cors',
                 credentials: 'omit'
             })

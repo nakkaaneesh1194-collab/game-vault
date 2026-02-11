@@ -3,6 +3,7 @@ const express = require('express');
 const { Pool } = require('pg');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
+const axios = require('axios');
 
 const app = express();
 const PORT = process.env.PORT || 3030;
@@ -378,6 +379,74 @@ function generateKey() {
     
     return key;
 }
+
+// ===== B2 PROXY CONFIGURATION =====
+const B2_KEY_ID = process.env.B2_APPLICATION_KEY_ID;
+const B2_APP_KEY = process.env.B2_APPLICATION_KEY;
+const B2_BUCKET_NAME = process.env.B2_BUCKET_NAME || 'game-stuff';
+
+// Cache for B2 auth token (valid for 24 hours)
+let b2AuthCache = null;
+
+// Authenticate with B2
+async function getB2Auth() {
+    // Return cached token if still valid
+    if (b2AuthCache && b2AuthCache.expires > Date.now()) {
+        return b2AuthCache;
+    }
+
+    const credentials = `${B2_KEY_ID}:${B2_APP_KEY}`;
+    const base64 = Buffer.from(credentials).toString('base64');
+
+    const response = await axios.get('https://api.backblazeb2.com/b2api/v2/b2_authorize_account', {
+        headers: {
+            Authorization: `Basic ${base64}`
+        }
+    });
+
+    // Cache for 23 hours (B2 tokens last 24 hours)
+    b2AuthCache = {
+        authToken: response.data.authorizationToken,
+        downloadUrl: response.data.downloadUrl,
+        expires: Date.now() + (23 * 60 * 60 * 1000)
+    };
+
+    return b2AuthCache;
+}
+
+// Proxy endpoint for B2 files
+app.get('/api/b2-proxy/:filename', async (req, res) => {
+    try {
+        const { filename } = req.params;
+        
+        // Get B2 auth
+        const auth = await getB2Auth();
+        
+        // Build file URL
+        const fileUrl = `${auth.downloadUrl}/file/${B2_BUCKET_NAME}/${filename}`;
+        
+        console.log(`Proxying B2 file: ${filename}`);
+        
+        // Fetch file from B2 with auth
+        const response = await axios.get(fileUrl, {
+            headers: {
+                Authorization: auth.authToken
+            },
+            responseType: 'stream'
+        });
+
+        // Set CORS headers
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Content-Type', response.headers['content-type']);
+        res.setHeader('Content-Length', response.headers['content-length']);
+        
+        // Stream file to client
+        response.data.pipe(res);
+    } catch (error) {
+        console.error('B2 proxy error:', error.message);
+        res.status(500).json({ error: 'Failed to fetch file from B2' });
+    }
+});
 
 // Start server
 app.listen(PORT, () => {

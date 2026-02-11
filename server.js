@@ -12,10 +12,7 @@ const DATABASE_URL = process.env.DATABASE_URL;
 
 // Middleware
 app.use(express.json());
-app.use(cors({
-    origin: ['https://gleeful-sable-b556cb.netlify.app', 'http://localhost:3030'],
-    credentials: true
-}));
+app.use(cors());
 app.use(express.static('public')); // Serve static files (index.html, games.html, etc.)
 
 // Initialize PostgreSQL connection

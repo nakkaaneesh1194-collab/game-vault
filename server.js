@@ -13,6 +13,14 @@ const DATABASE_URL = process.env.DATABASE_URL;
 // Middleware
 app.use(express.json());
 app.use(cors());
+
+// Add security headers for Buckshot Roulette (Cross-Origin Isolation)
+app.use('/games/buckshotroulette', (req, res, next) => {
+    res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+    next();
+});
+
 app.use(express.static('public')); // Serve static files (index.html, games.html, etc.)
 
 // Initialize PostgreSQL connection

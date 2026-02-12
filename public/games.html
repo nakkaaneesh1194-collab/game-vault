@@ -185,7 +185,18 @@
             }
 
             try {
-                // Verify token and load games
+                // First verify the session is still valid (checks for revoked/deleted keys)
+                const verifyResponse = await fetch('/api/verify-session', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!verifyResponse.ok) {
+                    throw new Error('Session expired or revoked');
+                }
+
+                // Token is valid, now load games
                 const response = await fetch('/api/games', {
                     headers: {
                         'Authorization': `Bearer ${token}`
@@ -206,6 +217,7 @@
                 }
             } catch (error) {
                 console.error('Authentication error:', error);
+                alert('Your session has expired or access has been revoked. Please login again.');
                 localStorage.removeItem('accessToken');
                 window.location.href = '/';
             }

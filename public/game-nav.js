@@ -15,46 +15,62 @@
     const style = document.createElement('style');
     style.textContent = `
         .game-nav-bar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 50px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 20px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-            z-index: 999999;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            height: 50px !important;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            padding: 0 20px !important;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3) !important;
+            z-index: 999999 !important;
+            box-sizing: border-box !important;
         }
 
         .game-nav-title {
-            color: white;
-            font-size: 18px;
-            font-weight: bold;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white !important;
+            font-size: 18px !important;
+            font-weight: bold !important;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
         }
 
         .game-nav-back {
-            background: rgba(255, 255, 255, 0.2);
-            border: 2px solid white;
-            color: white;
-            padding: 8px 20px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            text-decoration: none;
-            transition: background 0.3s;
+            background: rgba(255, 255, 255, 0.2) !important;
+            border: 2px solid white !important;
+            color: white !important;
+            padding: 8px 20px !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+            text-decoration: none !important;
+            transition: background 0.3s !important;
         }
 
         .game-nav-back:hover {
-            background: rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.3) !important;
         }
 
-        body {
-            padding-top: 50px !important;
+        /* Adjust game content - use viewport height minus nav bar */
+        html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+            height: 100vh !important;
+        }
+
+        body > *:not(.game-nav-bar) {
+            margin-top: 50px !important;
+            height: calc(100vh - 50px) !important;
+            max-height: calc(100vh - 50px) !important;
+        }
+
+        /* Special case for canvas elements */
+        canvas {
+            max-height: calc(100vh - 50px) !important;
         }
     `;
 

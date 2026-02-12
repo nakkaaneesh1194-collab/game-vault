@@ -232,18 +232,18 @@ app.get('/api/games', (req, res) => {
         // Return list of games (replace with your actual games)
         res.json({
             games: [
-                { id: 1, title: 'A Small World Cup', url: '/games/a_small_world_cup.html', description: 'Fun soccer game!' },
-                { id: 2, title: 'PolyTrack', url: '/games/PolyTrack.html', description: 'Racing game' },
-                { id: 3, title: 'Ragdoll Archers', url: '/games/ragdoll_archers.html', description: 'Archery game' },
-                { id: 4, title: 'Cookie Clicker', url: '/games/cookie-clicker.html', description: 'Click a Cookie!' },
-                { id: 5, title: 'Basket Random', url: '/games/basketrandom.html', description: 'Random, Fun, Basketball game!' },
-                { id: 6, title: 'Retro Bowl College', url: '/games/retrobowlcollege.html', description: 'College Football game!' },
-                { id: 7, title: 'Crossy Road', url: '/games/crossyroad.html', description: 'Classic Crossy Road game!' },
-                { id: 8, title: 'Slow Roads', url: '/games/slowroads.html', description: 'Zen Driving game!' },
-                { id: 9, title: 'Friday Night Funkin', url: '/games/fridaynightfunkin.html', description: 'Music Battle Game!' },
-                { id: 10, title: 'Asteriods', url: '/games/asteroids.html', description: 'Classic Asteroids game!' },
-                { id: 11, title: 'Space Invaders', url: '/games/spaceinvaders.html', description: 'Classic Space Invaders game!' },
-                { id: 12, title: 'Buckshot Roulette', url: '/games/buckshotroulette/index.html', description: 'Russian Roulette game with a twist!' }
+                { id: 1, title: 'A Small World Cup', url: '/games/a_small_world_cup/', description: 'Fun soccer game!' },
+                { id: 2, title: 'PolyTrack', url: '/games/polytrack/', description: 'Racing game' },
+                { id: 3, title: 'Ragdoll Archers', url: '/games/ragdoll_archers/', description: 'Archery game' },
+                { id: 4, title: 'Cookie Clicker', url: '/games/cookie-clicker/', description: 'Click a Cookie!' },
+                { id: 5, title: 'Basket Random', url: '/games/basketrandom/', description: 'Random, Fun, Basketball game!' },
+                { id: 6, title: 'Retro Bowl College', url: '/games/retrobowlcollege/', description: 'College Football game!' },
+                { id: 7, title: 'Crossy Road', url: '/games/crossyroad/', description: 'Classic Crossy Road game!' },
+                { id: 8, title: 'Slow Roads', url: '/games/slowroads/', description: 'Zen Driving game!' },
+                { id: 9, title: 'Friday Night Funkin', url: '/games/fridaynightfunkin/', description: 'Music Battle Game!' },
+                { id: 10, title: 'Asteriods', url: '/games/asteroids/', description: 'Classic Asteroids game!' },
+                { id: 11, title: 'Space Invaders', url: '/games/spaceinvaders/', description: 'Classic Space Invaders game!' },
+                { id: 12, title: 'Buckshot Roulette', url: '/games/buckshotroulette/', description: 'Russian Roulette game with a twist!' }
             ]
         });
     } catch (err) {

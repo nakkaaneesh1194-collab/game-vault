@@ -1,23 +1,25 @@
-<Module>
-
-
-<!-- Ultimate Game Stash file--> 
-<!-- For the regularly updating doc go to https://docs.google.com/document/d/1_FmH3BlSBQI7FGgAQL59-ZPe8eCxs35wel6JUyVaG8Q/ -->
-
-
-
-<!DOCTYPE html><html lang="en-us"><head>
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
 <script src="https://cdn.jsdelivr.net/gh/laparda14/Ragdoll-archers@62504c9570ea720c6367e7debe1e110c68f77c2d/vs/gameloader-helper.js"></script>
 <meta charset="utf-8">
-<script src=""></script>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Ragdoll Archers</title>
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/bubbls/ruffle@04dd5345a30d6ebf4b0e2cc385568750cd56ed5a/styyyle.css">
+<style>
+/* Hide any nav bars that might be in the external CSS */
+.game-nav-bar, .nav-bar, nav, header {
+    display: none !important;
+}
+body {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+</style>
+</head>
 <body>
-  
-</div>
 <div id="unity-container" class="unity-desktop">
 <canvas id="unity-canvas"></canvas>
 </div>
@@ -45,7 +47,6 @@ const config = {
   productName: "Ragdoll Archers",
   productVersion: "0.1",
 };
-
 
     const container = document.querySelector("#unity-container");
     const canvas = document.querySelector("#unity-canvas");
@@ -81,5 +82,5 @@ const config = {
     });
 
   </script>
-</body></html>
-<script src="/game-nav.js"></script>
+</body>
+</html>

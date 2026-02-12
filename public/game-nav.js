@@ -1,5 +1,19 @@
 // game-nav.js - Universal navigation bar for all games
 (function() {
+    // Prevent games from registering service workers (causes 404 errors)
+    if ('serviceWorker' in navigator) {
+        const originalRegister = navigator.serviceWorker.register;
+        navigator.serviceWorker.register = function(scriptURL, options) {
+            // Only allow our Buckshot Roulette service worker
+            if (scriptURL.includes('buckshotroulette')) {
+                return originalRegister.call(navigator.serviceWorker, scriptURL, options);
+            }
+            // Block all other service worker registrations
+            console.log('Blocked service worker registration:', scriptURL);
+            return Promise.resolve({ scope: options?.scope || '/' });
+        };
+    }
+
     // Get game title from page title or default
     const gameTitle = document.title || 'Game';
 

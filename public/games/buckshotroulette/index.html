@@ -28,6 +28,28 @@
 	font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
+.nav-buttons {
+	display: flex;
+	gap: 10px;
+	align-items: center;
+}
+
+.nav-btn {
+	background: rgba(255, 255, 255, 0.2);
+	border: 2px solid white;
+	color: white;
+	padding: 8px 16px;
+	border-radius: 6px;
+	cursor: pointer;
+	font-size: 14px;
+	font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+	transition: background 0.3s;
+}
+
+.nav-btn:hover {
+	background: rgba(255, 255, 255, 0.3);
+}
+
 .game-nav-back {
 	background: rgba(255, 255, 255, 0.2);
 	border: 2px solid white;
@@ -140,7 +162,10 @@ body {
 	<body>
 		<div class="game-nav-bar">
 			<div class="game-nav-title">🎮 Buckshot Roulette</div>
-			<a href="/games.html" class="game-nav-back">← Back to Games</a>
+			<div class="nav-buttons">
+				<button class="nav-btn" onclick="openSettings()">⚙️ Settings</button>
+				<a href="/games.html" class="game-nav-back">← Back to Games</a>
+			</div>
 		</div>
 		
 		<canvas id="canvas">
@@ -288,3 +313,51 @@ body {
 		</script>
 	</body>
 </html>
+
+		<!-- Settings Modal (same as other games) -->
+		<div id="settingsModal" class="settings-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 100001; justify-content: center; align-items: center;">
+			<div class="settings-content" style="background: white; border-radius: 12px; width: 90%; max-width: 600px; max-height: 80vh; overflow: hidden; display: flex; flex-direction: column;">
+				<div class="settings-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; display: flex; justify-content: space-between; align-items: center;">
+					<h2 style="margin: 0; font-size: 24px;">⚙️ Settings</h2>
+					<button class="close-btn" onclick="closeSettings()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px;">✕</button>
+				</div>
+				<div class="settings-body" style="padding: 20px; overflow-y: auto; flex: 1;">
+					<p style="color: #333;">Settings coming soon! You can add more settings here.</p>
+					<div style="margin: 20px 0;">
+						<label style="display: block; margin-bottom: 10px; color: #333;">
+							<input type="checkbox" id="soundEnabled" checked> Enable Sound
+						</label>
+						<label style="display: block; color: #333;">
+							<input type="checkbox" id="fullscreenMode"> Fullscreen Mode
+						</label>
+					</div>
+				</div>
+				<div class="settings-footer" style="padding: 20px; border-top: 1px solid #e0e0e0; display: flex; gap: 10px; justify-content: flex-end;">
+					<button onclick="saveSettings()" style="padding: 10px 30px; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">Save</button>
+					<button onclick="closeSettings()" style="padding: 10px 30px; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; background: #e0e0e0; color: #333;">Cancel</button>
+				</div>
+			</div>
+		</div>
+
+		<script>
+		function openSettings() {
+			const modal = document.getElementById('settingsModal');
+			modal.style.display = 'flex';
+		}
+		function closeSettings() {
+			const modal = document.getElementById('settingsModal');
+			modal.style.display = 'none';
+		}
+		function saveSettings() {
+			const settings = {
+				soundEnabled: document.getElementById('soundEnabled').checked,
+				fullscreenMode: document.getElementById('fullscreenMode').checked
+			};
+			localStorage.setItem('gameVaultSettings', JSON.stringify(settings));
+			alert('Settings saved!');
+			closeSettings();
+		}
+		document.getElementById('settingsModal')?.addEventListener('click', function(e) {
+			if (e.target === this) closeSettings();
+		});
+		</script>

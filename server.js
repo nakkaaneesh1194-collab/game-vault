@@ -435,32 +435,50 @@ app.get('/api/b2-proxy/:filename', async (req, res) => {
     try {
         const { filename } = req.params;
         
+        console.log(`Proxying B2 file: ${filename}`);
+        
         // Get B2 auth
         const auth = await getB2Auth();
         
         // Build file URL
         const fileUrl = `${auth.downloadUrl}/file/${B2_BUCKET_NAME}/${filename}`;
         
-        console.log(`Proxying B2 file: ${filename}`);
-        
-        // Fetch file from B2 with auth
+        // Fetch file from B2 with auth and increased timeout
         const response = await axios.get(fileUrl, {
             headers: {
                 Authorization: auth.authToken
             },
-            responseType: 'stream'
+            responseType: 'stream',
+            timeout: 120000, // 2 minute timeout for large files
+            maxRedirects: 5
         });
 
         // Set CORS headers
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Content-Type', response.headers['content-type']);
         res.setHeader('Content-Length', response.headers['content-length']);
+        res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
         
         // Stream file to client
         response.data.pipe(res);
+        
+        // Handle stream errors
+        response.data.on('error', (error) => {
+            console.error('Stream error:', error.message);
+            if (!res.headersSent) {
+                res.status(500).json({ error: 'Stream error' });
+            }
+        });
     } catch (error) {
         console.error('B2 proxy error:', error.message);
-        res.status(500).json({ error: 'Failed to fetch file from B2' });
+        
+        // Send appropriate error based on status
+        const status = error.response?.status || 500;
+        const message = status === 403 ? 'B2 authorization failed' : 'Failed to fetch file from B2';
+        
+        if (!res.headersSent) {
+            res.status(status).json({ error: message, details: error.message });
+        }
     }
 });
 

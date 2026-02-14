@@ -401,33 +401,27 @@ const B2_KEY_ID = process.env.B2_APPLICATION_KEY_ID;
 const B2_APP_KEY = process.env.B2_APPLICATION_KEY;
 const B2_BUCKET_NAME = process.env.B2_BUCKET_NAME || 'game-stuff';
 
-// Cache for B2 auth token (valid for 24 hours)
-let b2AuthCache = null;
-
-// Authenticate with B2
+// Authenticate with B2 (removed caching to prevent concurrent request issues)
 async function getB2Auth() {
-    // Return cached token if still valid
-    if (b2AuthCache && b2AuthCache.expires > Date.now()) {
-        return b2AuthCache;
-    }
-
     const credentials = `${B2_KEY_ID}:${B2_APP_KEY}`;
     const base64 = Buffer.from(credentials).toString('base64');
 
-    const response = await axios.get('https://api.backblazeb2.com/b2api/v2/b2_authorize_account', {
-        headers: {
-            Authorization: `Basic ${base64}`
-        }
-    });
+    try {
+        const response = await axios.get('https://api.backblazeb2.com/b2api/v2/b2_authorize_account', {
+            headers: {
+                Authorization: `Basic ${base64}`
+            },
+            timeout: 10000
+        });
 
-    // Cache for 23 hours (B2 tokens last 24 hours)
-    b2AuthCache = {
-        authToken: response.data.authorizationToken,
-        downloadUrl: response.data.downloadUrl,
-        expires: Date.now() + (23 * 60 * 60 * 1000)
-    };
-
-    return b2AuthCache;
+        return {
+            authToken: response.data.authorizationToken,
+            downloadUrl: response.data.downloadUrl
+        };
+    } catch (error) {
+        console.error('B2 authentication failed:', error.message);
+        throw new Error('Failed to authenticate with B2');
+    }
 }
 
 // Proxy endpoint for B2 files

@@ -67,17 +67,18 @@ async function initDatabase() {
             )
         `);
         
-        // Create a default admin key on first run
-        const result = await pool.query('SELECT * FROM access_keys WHERE is_admin = 1');
+        // Create a default owner key on first run
+        const result = await pool.query('SELECT * FROM access_keys WHERE is_admin = 2');
         
         if (result.rows.length === 0) {
-            const adminKey = generateKey();
-            await pool.query('INSERT INTO access_keys (key_code, is_admin) VALUES ($1, 1)', [adminKey]);
+            const ownerKey = generateKey();
+            await pool.query('INSERT INTO access_keys (key_code, is_admin) VALUES ($1, 2)', [ownerKey]);
             
             console.log('===========================================');
-            console.log('🔑 ADMIN KEY CREATED:', adminKey);
+            console.log('👑 OWNER KEY CREATED:', ownerKey);
             console.log('===========================================');
             console.log('Save this key! Use it to access /admin.html');
+            console.log('Owner can: Generate admin/regular keys, revoke/delete any keys');
             console.log('===========================================');
         }
     } catch (err) {
@@ -144,16 +145,22 @@ app.post('/api/validate-key', async (req, res) => {
 
         const row = result.rows[0];
 
-        // Check if this is an admin key
-        if (row.is_admin) {
-            // Track admin key usage but don't mark as used
+        // Check if this is an admin or owner key
+        if (row.is_admin >= 1) {
+            // Track admin/owner key usage but don't mark as used
             await pool.query(
                 'UPDATE access_keys SET used_at = NOW(), used_by_ip = $1 WHERE id = $2',
                 [clientIp, row.id]
             );
             
             const token = jwt.sign(
-                { keyId: row.id, keyCode: row.key_code, isAdmin: true },
+                { 
+                    keyId: row.id, 
+                    keyCode: row.key_code, 
+                    isAdmin: true,
+                    isOwner: row.is_admin === 2,
+                    role: row.is_admin === 2 ? 'owner' : 'admin'
+                },
                 JWT_SECRET,
                 { expiresIn: '7d' }
             );
@@ -162,7 +169,9 @@ app.post('/api/validate-key', async (req, res) => {
                 valid: true,
                 token: token,
                 isAdmin: true,
-                message: 'Admin access granted',
+                isOwner: row.is_admin === 2,
+                role: row.is_admin === 2 ? 'owner' : 'admin',
+                message: row.is_admin === 2 ? 'Owner access granted' : 'Admin access granted',
                 redirectTo: '/admin.html'
             });
         }
@@ -288,6 +297,11 @@ function requireAdmin(req, res, next) {
 app.post('/api/admin/keys/generate', requireAdmin, async (req, res) => {
     const { count = 1, isAdmin = false } = req.body;
     const keys = [];
+    
+    // Only owners can generate admin keys
+    if (isAdmin && !req.user.isOwner) {
+        return res.status(403).json({ error: 'Only owners can generate admin keys' });
+    }
 
     try {
         for (let i = 0; i < Math.min(count, 100); i++) {
@@ -323,14 +337,30 @@ app.post('/api/admin/keys/revoke/:id', requireAdmin, async (req, res) => {
     const keyId = req.params.id;
     
     try {
+        // First, check what type of key we're trying to revoke
+        const checkResult = await pool.query('SELECT is_admin FROM access_keys WHERE id = $1', [keyId]);
+        
+        if (checkResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Key not found' });
+        }
+        
+        const targetKeyLevel = checkResult.rows[0].is_admin;
+        
+        // Admins can only revoke regular keys (is_admin = 0)
+        // Owners can revoke regular and admin keys (is_admin <= 1)
+        if (!req.user.isOwner && targetKeyLevel >= 1) {
+            return res.status(403).json({ error: 'Only owners can revoke admin keys' });
+        }
+        
+        // Can't revoke owner keys
+        if (targetKeyLevel === 2) {
+            return res.status(403).json({ error: 'Cannot revoke owner keys' });
+        }
+        
         const result = await pool.query(
-            'UPDATE access_keys SET is_revoked = 1 WHERE id = $1 AND is_admin = 0 RETURNING *',
+            'UPDATE access_keys SET is_revoked = 1 WHERE id = $1 RETURNING *',
             [keyId]
         );
-        
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Key not found or is an admin key' });
-        }
         
         res.json({ success: true, message: 'Key revoked successfully' });
     } catch (err) {
@@ -344,14 +374,29 @@ app.post('/api/admin/keys/unrevoke/:id', requireAdmin, async (req, res) => {
     const keyId = req.params.id;
     
     try {
+        // Check what type of key we're trying to unrevoke
+        const checkResult = await pool.query('SELECT is_admin FROM access_keys WHERE id = $1', [keyId]);
+        
+        if (checkResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Key not found' });
+        }
+        
+        const targetKeyLevel = checkResult.rows[0].is_admin;
+        
+        // Admins can only unrevoke regular keys
+        if (!req.user.isOwner && targetKeyLevel >= 1) {
+            return res.status(403).json({ error: 'Only owners can unrevoke admin keys' });
+        }
+        
+        // Can't unrevoke owner keys
+        if (targetKeyLevel === 2) {
+            return res.status(403).json({ error: 'Cannot unrevoke owner keys' });
+        }
+        
         const result = await pool.query(
-            'UPDATE access_keys SET is_revoked = 0 WHERE id = $1 AND is_admin = 0 RETURNING *',
+            'UPDATE access_keys SET is_revoked = 0 WHERE id = $1 RETURNING *',
             [keyId]
         );
-        
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Key not found or is an admin key' });
-        }
         
         res.json({ success: true, message: 'Key access restored' });
     } catch (err) {
@@ -365,14 +410,29 @@ app.delete('/api/admin/keys/:id', requireAdmin, async (req, res) => {
     const keyId = req.params.id;
     
     try {
+        // Check what type of key we're trying to delete
+        const checkResult = await pool.query('SELECT is_admin FROM access_keys WHERE id = $1', [keyId]);
+        
+        if (checkResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Key not found' });
+        }
+        
+        const targetKeyLevel = checkResult.rows[0].is_admin;
+        
+        // Admins can only delete regular keys
+        if (!req.user.isOwner && targetKeyLevel >= 1) {
+            return res.status(403).json({ error: 'Only owners can delete admin keys' });
+        }
+        
+        // Can't delete owner keys
+        if (targetKeyLevel === 2) {
+            return res.status(403).json({ error: 'Cannot delete owner keys' });
+        }
+        
         const result = await pool.query(
-            'DELETE FROM access_keys WHERE id = $1 AND is_admin = 0 RETURNING *',
+            'DELETE FROM access_keys WHERE id = $1 RETURNING *',
             [keyId]
         );
-        
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Key not found or is an admin key' });
-        }
         
         res.json({ success: true, message: 'Key deleted successfully' });
     } catch (err) {

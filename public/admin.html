@@ -668,8 +668,8 @@
                 const createdDate = new Date(key.created_at).toLocaleString();
                 const usedDate = key.used_at ? new Date(key.used_at).toLocaleString() : '-';
                 
-                const isKeyOwner = key.is_owner === 1 || key.is_owner === true;
-                const isKeyAdmin = key.is_admin === 1 || key.is_admin === true;
+                const isKeyOwner = key.is_admin === 2;
+                const isKeyAdmin = key.is_admin === 1;
                 const isRevoked = key.is_revoked === 1 || key.is_revoked === true;
                 const isUsed = key.is_used === 1 || key.is_used === true;
                 

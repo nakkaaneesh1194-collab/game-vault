@@ -10,6 +10,9 @@ const PORT = process.env.PORT || 3030;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this';
 const DATABASE_URL = process.env.DATABASE_URL;
 
+// Trust proxy - important for getting real IP on Render
+app.set('trust proxy', true);
+
 // Middleware
 app.use(express.json());
 app.use(cors());
